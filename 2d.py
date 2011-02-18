@@ -22,7 +22,7 @@ class Cell:
         self.future_state = alive
         self.time_since_death = fade_time
 
-    def apply_future(self, surf, x, y):
+    def apply_future(self, surf, (x, y)):
         if ( self.alive != self.future_state ) or ( not self.alive and self.time_since_death < fade_time ):
             self.alive = self.future_state
             self.draw(surf, x, y)
@@ -61,12 +61,18 @@ class Cell:
     def live(self):
         self.future_state = True
 
+    def set_state(self, state):
+        if state:
+            self.live()
+        else:
+            self.die()
+
 
 class Game:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode(size)
-        self.board = [ [Cell() for _ in range(board_height)] for _ in range(board_width)]
+        self.board = {}
         random.seed(time.time())
 
         self.gen = 0
@@ -85,63 +91,57 @@ class Game:
             print "%f s or %f FPS" % (time_used, 1/time_used)
             counter += 1
 
+    def set_cell(self, pos, state):
+        if pos not in self.board:
+            self.board[pos] = Cell()
+
+        self.board[pos].set_state(state)
+
     def random_seed(self):
         choices = [False, True, False]
         
         for i in range(board_width):
-            if random.choice(choices):
-                self.board[i][0].live()
-            else:
-                self.board[i][0].die()
-                
-            if random.choice(choices):
-                self.board[i][board_height-1].live()
-            else:
-                self.board[i][board_height-1].die()
-
-        
-        for i in range(board_height):       
-            if random.choice(choices):
-                self.board[0][i].live()
-            else:
-                self.board[0][i].die()
-                
-            if random.choice(choices):
-                self.board[board_width-1][i].live()
-            else:
-                self.board[board_width-1][i].die()
-
+            self.set_cell( (i,0), random.choice(choices) )
+            self.set_cell( (i,board_height-1), random.choice(choices) )
+  
+        for i in range(board_height):
+            self.set_cell( (0,i), random.choice(choices) )
+            self.set_cell( (board_width-1,i), random.choice(choices) )
 
     def step(self):
         self.screen.fill(black)
 
         self.screen.lock()
 
-        for i in range(board_width):
-
-            for j in range(board_height):
-                self.board[i][j].apply_future(self.screen, i, j)
+        for pos, cell in self.board.iteritems():
+            cell.apply_future(self.screen, pos)
 
         self.screen.unlock()
 
 
-        for i in range(board_width):
-            for j in range(board_height):
+        for pos, cell in self.board.iteritems():
+            sum = 0
 
-                sum = 0
+            neighbors = [ (pos[0]-1,pos[1]),
+                          (pos[0]-1,pos[1]-1),
+                          (pos[0],pos[1]-1),
+                          ((pos[0]+1) % board_width,pos[1]-1),
+                          ((pos[0]+1) % board_width,pos[1]),
+                          ((pos[0]+1) % board_width,(pos[1]+1) % board_height),
+                          (pos[0],(pos[1]+1) % board_height),
+                          (pos[0]-1,(pos[1]+1) % board_height) ]
 
-                for x in [i-1, i, (i+1) % board_width]:
-                    for y in [j-1, j, (j+1) % board_height]:
-                        if self.board[x][y].alive:
-                            sum += 1
+            for n in neighbors:
+                if n in self.board and self.board[n].alive:
+                    sum += 1
 
-                if self.board[i][j].alive:
-                    sum -= 1
+            if cell.alive:
+                sum -= 1
 
-                if sum >= R[0] and sum <= R[1]:
-                    self.board[i][j].live()
-                if sum > R[2] or sum < R[3]:
-                    self.board[i][j].die()
+            if sum >= R[0] and sum <= R[1]:
+                cell.live()
+            if sum > R[2] or sum < R[3]:
+                cell.die()
 
         
 
