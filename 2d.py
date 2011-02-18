@@ -1,6 +1,7 @@
 import os, random, time
-import pygame, pygame.image, pygame.key
+import pygame, pygame.image, pygame.key, pygame.draw
 from pygame.locals import *
+import cProfile
 
 generations_per_second = 3
 fade_time = 15.0
@@ -21,8 +22,13 @@ class Cell:
         self.future_state = alive
         self.time_since_death = fade_time
 
-    def apply_future(self):
-        self.alive = self.future_state
+    def apply_future(self, surf, x, y):
+        if ( self.alive != self.future_state ) or ( not self.alive and self.time_since_death < fade_time ):
+            self.alive = self.future_state
+            self.draw(surf, x, y)
+        else:
+            self.alive = self.future_state
+            
         if not self.alive:
             self.time_since_death += 1
 
@@ -45,7 +51,7 @@ class Cell:
             c = Color(0,0,0,0)
             c.hsva = (195, saturation, value, 100)
             
-            surface.fill(c, pygame.Rect(x*blit_size, y*blit_size, blit_size, blit_size) )
+            surface.set_at((x,y), c )
 
     def die(self):
         self.future_state = False
@@ -66,12 +72,18 @@ class Game:
         self.gen = 0
 
     def run(self):
+        counter = 0
         while 1:
+            if counter > 10:
+                return
+            start = time.time()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: sys.exit()
 
             self.step()
-            time.sleep(0.01)
+            time_used = time.time() - start
+            print "%f s or %f FPS" % (time_used, 1/time_used)
+            counter += 1
 
     def random_seed(self):
         choices = [False, True, False]
@@ -103,16 +115,15 @@ class Game:
     def step(self):
         self.screen.fill(black)
 
-        for i in range(board_width):
-            #print " "
-            for j in range(board_height):
-                self.board[i][j].apply_future()
-                self.board[i][j].draw(self.screen, i, j)
+        self.screen.lock()
 
-                #if self.board[i][j].alive:
-                #    print "x",
-                #else:
-                #    print "0",
+        for i in range(board_width):
+
+            for j in range(board_height):
+                self.board[i][j].apply_future(self.screen, i, j)
+
+        self.screen.unlock()
+
 
         for i in range(board_width):
             for j in range(board_height):
@@ -146,4 +157,5 @@ class Game:
 
 if __name__ == '__main__':
     game = Game()
-    game.run()
+    cProfile.run('game.run()', 'gol_prof')
+    #game.run()
