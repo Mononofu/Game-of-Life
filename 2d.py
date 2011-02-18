@@ -1,5 +1,5 @@
 import os, random, time
-import pygame, pygame.image, pygame.key, pygame.draw
+import pygame, pygame.image, pygame.key, pygame.draw, pygame.font
 from pygame.locals import *
 import cProfile
 
@@ -74,14 +74,16 @@ class Game:
         self.screen = pygame.display.set_mode(size)
         self.board = {}
         random.seed(time.time())
+        self.cells_to_add = []
 
         self.gen = 0
 
+        self.font = pygame.font.SysFont("Droid Sans Mono", 16)
+
     def run(self):
-        counter = 0
         while 1:
-            if counter > 10:
-                return
+            #if self.gen > 300:
+            #    return
             start = time.time()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: sys.exit()
@@ -89,11 +91,26 @@ class Game:
             self.step()
             time_used = time.time() - start
             print "%f s or %f FPS" % (time_used, 1/time_used)
-            counter += 1
 
     def set_cell(self, pos, state):
         if pos not in self.board:
             self.board[pos] = Cell()
+
+        if state:
+            neighbors = [ (pos[0]-1,pos[1]),
+                          (pos[0]-1,pos[1]-1),
+                          (pos[0],pos[1]-1),
+                          ((pos[0]+1) % board_width,pos[1]-1),
+                          ((pos[0]+1) % board_width,pos[1]),
+                          ((pos[0]+1) % board_width,(pos[1]+1) % board_height),
+                          (pos[0],(pos[1]+1) % board_height),
+                          (pos[0]-1,(pos[1]+1) % board_height) ]
+            
+            for n in neighbors:
+                if n not in self.board:
+                    self.cells_to_add.append(n)
+                
+
 
         self.board[pos].set_state(state)
 
@@ -111,8 +128,15 @@ class Game:
     def step(self):
         self.screen.fill(black)
 
-        self.screen.lock()
+        self.random_seed()
+        
+        for c in self.cells_to_add:
+            self.board[c] = Cell()
 
+        self.cells_to_add = []
+        
+        self.screen.lock()
+        
         for pos, cell in self.board.iteritems():
             cell.apply_future(self.screen, pos)
 
@@ -133,22 +157,18 @@ class Game:
 
             for n in neighbors:
                 if n in self.board and self.board[n].alive:
-                    sum += 1
-
-            if cell.alive:
-                sum -= 1
+                        sum += 1
 
             if sum >= R[0] and sum <= R[1]:
-                cell.live()
+                self.set_cell(pos, True)
             if sum > R[2] or sum < R[3]:
-                cell.die()
+                self.set_cell(pos, False)
 
-        
 
-        self.random_seed()
+        self.screen.blit( self.font.render("gen % 5d" % self.gen, True, (255, 0, 0), (0,0,0)) , (width-120, height-50) )
         pygame.display.flip()
 
-        pygame.image.save(self.screen, "life%000d.png" % self.gen)
+        pygame.image.save(self.screen, "life%05d.png" % self.gen)
         self.gen += 1
 
             
@@ -157,5 +177,5 @@ class Game:
 
 if __name__ == '__main__':
     game = Game()
-    cProfile.run('game.run()', 'gol_prof')
-    #game.run()
+    #cProfile.run('game.run()', 'gol_prof')
+    game.run()
